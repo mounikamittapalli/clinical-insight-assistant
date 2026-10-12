@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clinical-insight-assistant"
+version = "0.1.0"
+description = "Open-source RAG + LoRA fine-tuning assistant over synthetic patient records (Synthea) and public CMS medical policy documents."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Mounika Mittapalli" }]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyyaml>=6.0",
+    "rank-bm25>=0.2.2",
+    "pydantic>=2.5",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+]
+
+[project.optional-dependencies]
+# Heavy model dependencies are optional so tests and CI stay fast.
+models = [
+    "torch>=2.2",
+    "transformers>=4.44",
+    "sentence-transformers>=3.0",
+    "faiss-cpu>=1.8",
+    "chromadb>=0.5",
+    "pypdf>=4.2",
+    "accelerate>=0.33",
+]
+finetune = [
+    "peft>=0.12",
+    "datasets>=2.20",
+    "bitsandbytes>=0.43; platform_system == 'Linux'",
+]
+tracking = ["mlflow>=2.14"]
+dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

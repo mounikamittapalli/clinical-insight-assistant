@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# data and model artifacts (rebuild with make data / index / train)
+data/raw/
+data/processed/
+data/index/
+data/finetune/
+models/
+results/
+mlruns/
+eval/questions.jsonl

@@ -1,0 +1,62 @@
+# Clinical & Policy Insight Assistant - default configuration.
+# Every model here is open-source and downloaded from the Hugging Face Hub on first use.
+
+paths:
+  synthea_dir: data/raw/synthea/csv        # Synthea CSV export (patients.csv, conditions.csv, ...)
+  policy_dir: data/raw/policies            # CMS medical policy documents (.pdf, .txt, .md)
+  sqlite_db: data/processed/patients.db    # structured store built from Synthea
+  index_dir: data/index                    # FAISS / Chroma / BM25 artifacts
+  finetune_dir: data/finetune              # generated QA pairs for LoRA
+  adapter_dir: models/lora-adapter         # trained LoRA adapter
+  results_dir: results
+
+ingest:
+  max_patients: 2000          # cap for laptops; raise for bigger runs
+
+chunking:
+  chunk_size: 800             # characters
+  chunk_overlap: 120
+
+embeddings:
+  model: BAAI/bge-small-en-v1.5
+  batch_size: 64
+
+vector_store:
+  backend: faiss              # faiss | chroma
+
+retrieval:
+  top_k: 5                    # chunks passed to the LLM
+  candidate_k: 20             # candidates fetched from each retriever before fusion
+  hybrid: true                # dense + BM25 with reciprocal rank fusion
+  rrf_k: 60
+  rerank: true
+  reranker_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+
+llm:
+  model: Qwen/Qwen2.5-1.5B-Instruct
+  max_new_tokens: 256
+  temperature: 0.0            # deterministic answers for evaluation
+  load_adapter: false         # set true after LoRA training
+
+finetune:
+  base_model: Qwen/Qwen2.5-1.5B-Instruct
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+  epochs: 2
+  learning_rate: 0.0002
+  batch_size: 4
+  grad_accum: 4
+  max_length: 1024
+  load_in_4bit: false         # QLoRA on a CUDA GPU; needs bitsandbytes
+
+guardrails:
+  mask_pii: true
+  require_citations: true
+  max_question_chars: 1000
+
+evaluation:
+  questions_file: eval/questions.jsonl
+  grounding_threshold: 0.55   # min lexical support for a sentence to count as grounded
+  experiment_name: clinical-insight-assistant

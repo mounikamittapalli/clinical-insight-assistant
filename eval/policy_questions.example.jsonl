@@ -1,0 +1,2 @@
+{"question": "Under the NCD you downloaded, what documentation is required before coverage is approved?", "reference": "Write the correct answer from the policy here.", "keywords": ["replace", "with", "key facts"], "gold_sources": ["policy:<your-file-name>.pdf"]}
+{"question": "What is the capital of France?", "reference": "I don't know based on the available records and policy documents.", "keywords": [], "gold_sources": []}
