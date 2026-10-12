@@ -1,0 +1,4 @@
+Warning: python@3.11 3.11.17 is already installed and up-to-date.
+To reinstall 3.11.17, run:
+  brew reinstall python@3.11
+Error: Command '['/Users/mounika/Downloads/clinical-insight-assistant/.venv/bin/python3.11', '-m', 'ensurepip', '--upgrade', '--default-pip']' returned non-zero exit status 1.

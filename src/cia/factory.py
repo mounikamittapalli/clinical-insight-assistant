@@ -58,4 +58,5 @@ def build_pipeline(cfg: Config, retriever=None, generator=None) -> RAGPipeline:
         require_citations=g.require_citations,
         mask_pii=g.mask_pii,
         max_question_chars=g.max_question_chars,
+        citation_repair=g.get("citation_repair", True),
     )

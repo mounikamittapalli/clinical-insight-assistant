@@ -78,7 +78,7 @@ python -m venv .venv && source .venv/bin/activate
 make install                 # all dependencies
 make data                    # download Synthea; then add CMS policy PDFs to data/raw/policies/
 make index                   # chunk, embed and index everything
-make serve                   # API on http://localhost:8000/docs
+make serve                   # chat page at http://localhost:8000, API docs at /docs
 ```
 
 Ask a question:

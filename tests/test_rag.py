@@ -29,7 +29,7 @@ def test_rag_answer_is_cited_and_grounded(make_pipeline, fake_llm):
 def test_uncited_answer_is_replaced_with_refusal(make_pipeline):
     ans = make_pipeline(FakeLLM(reply="The patient has cancer.")).ask("Conditions of p-001?")
     assert ans.blocked and ans.text == NO_ANSWER
-    assert ans.reason == "answer had no citations"
+    assert ans.reason == "answer not supported by the retrieved sources"
 
 
 def test_prompt_injection_is_blocked_before_llm(make_pipeline, fake_llm):
@@ -50,3 +50,25 @@ def test_prompt_only_mode_skips_retrieval(make_pipeline, fake_llm):
 def test_invalid_mode(make_pipeline, fake_llm):
     with pytest.raises(ValueError):
         make_pipeline(fake_llm).ask("hi", mode="nope")
+
+
+def test_grounded_uncited_answer_gets_citations_added(make_pipeline):
+    llm = FakeLLM(reply="Patient p-001 has diabetes mellitus type 2 and essential hypertension.")
+    ans = make_pipeline(llm).ask("What active conditions does patient p-001 have?")
+    assert not ans.blocked
+    assert "[1]" in ans.text or "[2]" in ans.text
+    assert ans.citations[0].chunk.source == "patient:p-001"
+
+
+def test_cited_but_unsupported_answer_is_refused(make_pipeline):
+    # The model answers from general knowledge and attaches a citation anyway.
+    ans = make_pipeline(FakeLLM(reply="Paris [1].")).ask("What is the capital of France?")
+    assert ans.blocked and ans.text == NO_ANSWER
+    assert ans.reason == "answer not supported by the retrieved sources"
+
+
+def test_miscited_sentence_is_recited_to_supporting_passage(make_pipeline):
+    llm = FakeLLM(reply="Patient p-001 has essential hypertension [3].")
+    ans = make_pipeline(llm).ask("What active conditions does patient p-001 have?")
+    assert not ans.blocked
+    assert all(c.chunk.source == "patient:p-001" for c in ans.citations)

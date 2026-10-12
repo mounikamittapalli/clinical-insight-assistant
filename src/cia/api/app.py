@@ -2,19 +2,23 @@
 
     uvicorn cia.api.app:app --host 0.0.0.0 --port 8000
 
+GET  /         -> chat web page
 GET  /health  -> liveness and index stats
+GET  /patients -> sample patient IDs (for example questions)
 POST /ask     -> {"question": "...", "mode": "rag" | "prompt_only"}
 """
 
 from __future__ import annotations
 
 import json
+import sqlite3
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from cia.config import load_config
@@ -66,6 +70,27 @@ def get_pipeline(request: Request):
     if pipeline is None:
         raise HTTPException(503, "Pipeline not loaded")
     return pipeline
+
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/", include_in_schema=False)
+def home() -> FileResponse:
+    """Chat web page."""
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/patients")
+def sample_patients(request: Request, limit: int = 5) -> dict:
+    """A few patient IDs, used by the web page to suggest example questions."""
+    cfg = getattr(request.app.state, "config", None)
+    db = Path(cfg.paths.sqlite_db) if cfg is not None else None
+    if db is None or not db.exists():
+        return {"patients": []}
+    with sqlite3.connect(db) as conn:
+        rows = conn.execute("SELECT Id FROM patients LIMIT ?", (min(limit, 20),)).fetchall()
+    return {"patients": [r[0] for r in rows]}
 
 
 @app.get("/health")

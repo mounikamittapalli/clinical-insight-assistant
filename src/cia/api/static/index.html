@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinical & Policy Insight Assistant</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1c2430; --muted: #5f6b7a;
+    --border: #dfe3e8; --accent: #0f6e8c; --accent-soft: #e3f1f6;
+    --warn: #9a3412; --warn-soft: #fdecdf; --ok: #166534;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c; --panel: #1a2029; --text: #e6eaf0; --muted: #9aa5b4;
+      --border: #2c3542; --accent: #5ab8d6; --accent-soft: #17323d;
+      --warn: #fdba74; --warn-soft: #3a2316; --ok: #86efac;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 120px; }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 8px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    padding: 6px 12px; border-radius: 999px; font-size: 13px; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  #thread { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+  .q { align-self: flex-end; background: var(--accent); color: #fff; padding: 10px 14px;
+       border-radius: 14px 14px 4px 14px; max-width: 80%; }
+  .a { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+       padding: 14px 16px; }
+  .a .text { white-space: pre-wrap; }
+  .cite { display: inline-block; background: var(--accent-soft); color: var(--accent);
+          border-radius: 4px; padding: 0 5px; font-size: 12px; font-weight: 600;
+          cursor: pointer; margin: 0 1px; }
+  .meta { display: flex; gap: 10px; align-items: center; margin-top: 10px;
+          font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .badge { padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+  .badge.blocked { background: var(--warn-soft); color: var(--warn); }
+  .badge.mode { background: var(--accent-soft); color: var(--accent); }
+  .sources { margin-top: 12px; display: grid; gap: 8px; }
+  .src { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+  .src.hl { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .src b { color: var(--accent); }
+  .src .snip { color: var(--muted); margin-top: 4px; }
+  .thinking { color: var(--muted); font-style: italic; }
+
+  form {
+    position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg);
+    border-top: 1px solid var(--border); padding: 12px 16px;
+  }
+  .bar { max-width: 860px; margin: 0 auto; display: flex; gap: 8px; align-items: center; }
+  input[type=text] {
+    flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 15px; min-width: 0;
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  select, button {
+    padding: 12px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 14px;
+  }
+  button { background: var(--accent); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  @media (max-width: 560px) { select { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Clinical &amp; Policy Insight Assistant</h1>
+    <p>Ask about synthetic patient records (Synthea) and CMS coverage policies. Answers cite their sources.</p>
+    <div class="note">Synthetic data only. Not medical advice.</div>
+  </header>
+
+  <div class="examples" id="examples"></div>
+  <div id="thread"></div>
+</main>
+
+<form id="form">
+  <div class="bar">
+    <input type="text" id="question" placeholder="Ask a question…" autocomplete="off" required>
+    <select id="mode" title="Answer mode">
+      <option value="rag">RAG (cited)</option>
+      <option value="prompt_only">LLM only</option>
+    </select>
+    <button id="send" type="submit">Ask</button>
+  </div>
+</form>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function addExample(text) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = text;
+  b.onclick = () => { $("question").value = text; $("question").focus(); };
+  $("examples").appendChild(b);
+}
+
+async function loadExamples() {
+  try {
+    const r = await fetch("/patients?limit=2");
+    const ids = (await r.json()).patients || [];
+    ids.forEach((id, i) => addExample(
+      i === 0 ? `What active conditions does patient ${id} have?`
+              : `Which medications is patient ${id} currently taking?`));
+  } catch (e) { /* examples are optional */ }
+  addExample("What does Medicare require before covering a continuous glucose monitor?");
+  addExample("What is the capital of France?");
+}
+
+function renderAnswer(box, data) {
+  const id = "a" + Math.random().toString(36).slice(2, 8);
+  const text = esc(data.answer).replace(/\[(\d+)\]/g,
+    (_, n) => `<span class="cite" data-n="${n}" data-box="${id}">[${n}]</span>`);
+  const sources = data.citations.map((c) =>
+    `<div class="src" id="${id}-${c.index}"><b>[${c.index}]</b> ${esc(c.source)}
+       <div class="snip">${esc(c.snippet)}${c.snippet.length >= 300 ? "…" : ""}</div></div>`).join("");
+  box.innerHTML = `
+    <div class="text">${text}</div>
+    ${sources ? `<div class="sources">${sources}</div>` : ""}
+    <div class="meta">
+      <span class="badge mode">${data.mode === "rag" ? "RAG" : "LLM only"}</span>
+      ${data.blocked ? `<span class="badge blocked">Guardrail: ${esc(data.reason || "blocked")}</span>` : ""}
+      <span>${(data.latency_ms / 1000).toFixed(1)}s</span>
+    </div>`;
+  box.querySelectorAll(".cite").forEach((el) => el.onclick = () => {
+    const card = document.getElementById(`${el.dataset.box}-${el.dataset.n}`);
+    if (!card) return;
+    card.classList.add("hl"); card.scrollIntoView({behavior: "smooth", block: "nearest"});
+    setTimeout(() => card.classList.remove("hl"), 1500);
+  });
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = $("question").value.trim();
+  if (!question) return;
+  const q = document.createElement("div"); q.className = "q"; q.textContent = question;
+  const a = document.createElement("div"); a.className = "a";
+  a.innerHTML = '<span class="thinking">Searching records and policies…</span>';
+  $("thread").append(q, a);
+  a.scrollIntoView({behavior: "smooth"});
+  $("question").value = ""; $("send").disabled = true;
+  try {
+    const r = await fetch("/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question, mode: $("mode").value}),
+    });
+    if (!r.ok) throw new Error(`Server returned ${r.status}`);
+    renderAnswer(a, await r.json());
+  } catch (err) {
+    a.innerHTML = `<span class="badge blocked">Error</span> ${esc(err.message)}`;
+  } finally {
+    $("send").disabled = false; $("question").focus();
+  }
+});
+
+loadExamples();
+</script>
+</body>
+</html>

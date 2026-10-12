@@ -41,3 +41,9 @@ def test_ask_blocks_injection(client):
 def test_ask_validates_input(client):
     assert client.post("/ask", json={"question": ""}).status_code == 422
     assert client.post("/ask", json={"question": "hi", "mode": "bad"}).status_code == 422
+
+
+def test_home_page_and_patients(client):
+    r = client.get("/")
+    assert r.status_code == 200 and "Clinical &amp; Policy Insight Assistant" in r.text
+    assert client.get("/patients?limit=2").json()["patients"] == ["p-001", "p-002"]

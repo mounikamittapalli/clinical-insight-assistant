@@ -28,8 +28,20 @@ def format_context(contexts: list[RetrievedChunk], max_chars: int = 1200) -> str
     return "\n\n".join(blocks)
 
 
+CITATION_REMINDER = (
+    "Answer in one to three short sentences using only the passages above. "
+    "End every sentence with the number of the passage it came from, for example: "
+    '"Patient 12ab has essential hypertension [1]."'
+)
+
+
 def rag_messages(question: str, contexts: list[RetrievedChunk]) -> list[dict]:
-    user = f"Context passages:\n\n{format_context(contexts)}\n\nQuestion: {question}\nAnswer:"
+    # The citation rule is repeated right before the question: small models follow
+    # instructions near the end of the prompt much more reliably.
+    user = (
+        f"Context passages:\n\n{format_context(contexts)}\n\n"
+        f"{CITATION_REMINDER}\n\nQuestion: {question}\nAnswer:"
+    )
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user},
