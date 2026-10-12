@@ -10,6 +10,17 @@ class Generator(Protocol):
     def generate(self, messages: list[dict]) -> str: ...
 
 
+def pick_device() -> str:
+    """NVIDIA GPU if present, else the Apple Silicon GPU (MPS), else CPU."""
+    import torch
+
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 class HFGenerator:
     """Chat-style generation from any instruction-tuned causal LM on the Hugging Face Hub.
 
@@ -27,15 +38,19 @@ class HFGenerator:
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         self.torch = torch
+        self.device = pick_device()
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=dtype, device_map="auto" if torch.cuda.is_available() else None
-        )
+        dtype = {
+            "cuda": torch.bfloat16,
+            "mps": torch.float16,  # Apple Silicon GPU: half precision halves memory use
+            "cpu": torch.float32,
+        }[self.device]
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=dtype)
         if adapter_path:
             from peft import PeftModel
 
             self.model = PeftModel.from_pretrained(self.model, str(adapter_path))
+        self.model.to(self.device)
         self.model.eval()
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature

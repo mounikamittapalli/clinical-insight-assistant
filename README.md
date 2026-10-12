@@ -91,6 +91,19 @@ curl -s localhost:8000/ask -H 'Content-Type: application/json' \
 Each answer cites its sources by number, and the response lists those sources with snippets.
 If the retrieved context doesn't contain the answer, the assistant says so instead of guessing.
 
+### Running on a MacBook Air / Apple Silicon
+
+Models run on the Mac's GPU (MPS) automatically. Use the lighter laptop config
+(Qwen2.5-0.5B, 200 patients), which fits in 8 GB of memory:
+
+```bash
+export CIA_CONFIG=configs/config.mac.yaml
+make index && make serve
+```
+
+Fanless Macs slow down during long runs, so train the LoRA adapter on a free Colab GPU and
+copy `models/lora-adapter/` back. `--qlora` needs an NVIDIA GPU and won't work on a Mac.
+
 ## Fine-tuning with LoRA
 
 ```bash

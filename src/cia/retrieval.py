@@ -61,7 +61,9 @@ class CrossEncoderReranker:
     def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
         from sentence_transformers import CrossEncoder
 
-        self.model = CrossEncoder(model_name)
+        from cia.llm import pick_device
+
+        self.model = CrossEncoder(model_name, device=pick_device())
 
     def rerank(self, query: str, items: list[RetrievedChunk]) -> list[RetrievedChunk]:
         if not items:

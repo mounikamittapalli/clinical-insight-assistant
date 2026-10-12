@@ -30,7 +30,9 @@ class SentenceTransformerEmbedder:
     def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5", batch_size: int = 64):
         from sentence_transformers import SentenceTransformer
 
-        self.model = SentenceTransformer(model_name)
+        from cia.llm import pick_device
+
+        self.model = SentenceTransformer(model_name, device=pick_device())
         self.batch_size = batch_size
         self.dim = self.model.get_sentence_embedding_dimension()
         self._use_prefix = "bge" in model_name.lower()
